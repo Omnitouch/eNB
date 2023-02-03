@@ -3,7 +3,6 @@ import socket
 import struct
 import time
 import select
-from optparse import OptionParser
 from pycrate_asn1dir import S1AP
 from pycrate_asn1rt.utils import *
 from binascii import hexlify, unhexlify
@@ -17,6 +16,9 @@ import os
 import subprocess
 from threading import Thread
 import datetime
+from session import session_dict_initialization
+from cla import parse_cla, get_session_dict_items_from_cla
+import time
 
 import eNAS, eMENU
 
@@ -52,186 +54,22 @@ IMEISV = '1234567890123456'
 IMEI = '123456789012347'
 APN = 'internet'
 
-#Examples. Customize at your needs
-NON_IP_PACKET_1 = '0102030405060708090a'
-NON_IP_PACKET_2 = '0102030405060708090a0102030405060708090a'
-NON_IP_PACKET_3 = '0102030405060708090a0102030405060708090a0102030405060708090a'
-NON_IP_PACKET_4 = '0102030405060708090a0102030405060708090a0102030405060708090a0102030405060708090a'
-
-#   session_dict structure
-#
-#    session_dict['STATE'] = 0
-#   
-#    enb info:
-#    session_dict['ENB-UE-S1AP-ID']
-#    session_dict['ENB-NAME'] = string with enb nasme
-#    session_dict['ENB-PLMN'] = plmn
-#    session_dict['ENB-TAC'] = tac
-#    session_dict['ENB-ID'] = enb_id
-#    session_dict['ENB-CELLID']  = enb cellid
-#    session_dict['ENB-GTP-ADDRESS-INT'] = ip address in integer format to use directly in s1ap
-#    
-#    security:   
-#    session_dict['ENC-ALG'] = encryption algorithm 0 to 3
-#    session_dict['INT-ALG'] = integrity algorithm 1 to 3 
-#    session_dict['ENC-KEY'] = encryption key
-#    session_dict['INT-KEY'] = integrity key 
-#    session_dict['XRES'] = xres
-#    session_dict['KASME'] = kasme
-#    session_dict['NAS-KEY-EEA1'] 
-#    session_dict['NAS-KEY-EEA2'] 
-#    session_dict['NAS-KEY-EEA3'] 
-#    session_dict['NAS-KEY-EIA1'] 
-#    session_dict['NAS-KEY-EIA2'] 
-#    session_dict['NAS-KEY-EIA3']    
-  
-#    mme info:
-#    session_dict['MME-NAME'] = mme_name
-#    session_dict['MME-PLMN'] = servedPLMNs
-#    session_dict['MME-GROUP-ID'] = servedGroupIDs
-#    session_dict['MME-CODE'] = servedMMECs
-#    session_dict['MME-RELATIVE-CAPACITY'] 0 relative capacity
-#    session_dict['MME-UE-S1AP-ID'] = mme_ue_s1ap_id
-#
-#    nas:
-#    session_dict['NAS'] = full nas_pdu (either received or to ber sent, header, mac, sqn, and nas ecnrypted or not)
-#    session_dict['NAS-ENC'] = nas_pdu encrypted (either received or to ber sent, and can be ecnrypted)
-#    session_dict['UP-COUNT'] = count (integer) . sqn is the last byte %256
-#    session_dict['DOWN-COUNT'] = count (integer) . sqn is the last byte %256. from the received
-#    session_dict['DIR'] = 0 or 1 direction 0 uplink, 1 downlink
-#     
-#    session_dict['NAS-SMS-MT'] = nas for Answering to SMS-MT
 ######################################################################################################################################
 #                                                       GENERAL PROCEDURES:                                                          #
 ######################################################################################################################################
 
-
-    
-
-def session_dict_initialization(session_dict):
-
-    session_dict['STATE'] = 0
-    session_dict['ENB-UE-S1AP-ID'] = 1000
-    session_dict['ENB-NAME'] = 'Fabricio-eNB'
-    session_dict['ENB-PLMN'] = return_plmn_s1ap(session_dict['PLMN'])
-    session_dict['XRES'] = b'xresxres'
-
-    session_dict['KASME'] = b'kasme   kasme   kasme   kasme   '
-    # hex: 6b61736d652020206b61736d652020206b61736d652020206b61736d65202020
- 
-    session_dict['ENB-GTP-ADDRESS-INT'] = ''
-    
-    session_dict['RAB-ID'] = []
-    session_dict['SGW-GTP-ADDRESS'] = []
-    session_dict['SGW-TEID'] = []
-    
-    session_dict['EPS-BEARER-IDENTITY'] = []
-    session_dict['EPS-BEARER-TYPE'] = []  # default 0, dedicated 1
-    session_dict['EPS-BEARER-STATE']  = [] # active 1, inactive 0
-    session_dict['EPS-BEARER-APN'] = []
-    session_dict['PDN-ADDRESS'] = []
-
-    session_dict['PDN-ADDRESS-IPV4'] = None
-    session_dict['PDN-ADDRESS-IPV6'] = None
-    
-    if session_dict['ENB-TAC1'] is None:
-        session_dict['ENB-TAC1'] = b'\x00\x01'
-    if session_dict['ENB-TAC2'] is None:
-        session_dict['ENB-TAC2'] = b'\x00\x03'
-    session_dict['ENB-TAC'] = session_dict['ENB-TAC1']
-    session_dict['ENB-TAC-NBIOT'] = b'\x00\x02'     
-    session_dict['ENB-ID'] = 1
-    session_dict['ENB-CELLID'] = 1000000
-    
-    session_dict['NAS-KEY-EEA1'] = return_key(session_dict['KASME'],1,'NAS-ENC')
-    session_dict['NAS-KEY-EEA2'] = return_key(session_dict['KASME'],2,'NAS-ENC')
-    session_dict['NAS-KEY-EEA3'] = return_key(session_dict['KASME'],3,'NAS-ENC')
-    session_dict['NAS-KEY-EIA1'] = return_key(session_dict['KASME'],1,'NAS-INT')
-    session_dict['NAS-KEY-EIA2'] = return_key(session_dict['KASME'],2,'NAS-INT')
-    session_dict['NAS-KEY-EIA3'] = return_key(session_dict['KASME'],3,'NAS-INT')  
-    
-
-    
-    session_dict['UP-COUNT'] = -1    
-    session_dict['DOWN-COUNT'] = -1
-  
-    session_dict['ENC-ALG'] = 0
-    session_dict['INT-ALG'] = 0 
-    session_dict['ENC-KEY'] = None
-    session_dict['INT-KEY'] = None  
-    session_dict['APN'] = APN
-    
-    
-    session_dict['NAS-SMS-MT'] = None
-    
-    if session_dict['LOCAL_KEYS'] == True:
-        if session_dict['IMSI'] == None:
-            session_dict['IMSI'] = IMSI
-        
-    else:
-        if session_dict['IMSI'] == None:
-            try:
-                session_dict['IMSI'] = return_imsi(session_dict['SERIAL-INTERFACE'])
-                if session_dict['IMSI'] == None:
-                    session_dict['LOCAL_KEYS'] = True
-                    session_dict['IMSI'] = IMSI                
-            except:
-                if session_dict['LOCAL_MILENAGE'] == False:
-                    session_dict['LOCAL_KEYS'] = True
-                session_dict['IMSI'] = IMSI
-        
-    if session_dict['IMEISV'] == None:
-        session_dict['IMEISV'] = IMEISV
-    
-    session_dict['ENCODED-IMSI'] = eNAS.encode_imsi(session_dict['IMSI'])
-    session_dict['ENCODED-IMEI'] = eNAS.encode_imei(IMEISV)
-    session_dict['ENCODED-GUTI'] = eNAS.encode_guti(int(session_dict['PLMN']),32769,1,12345678)
-    
-    session_dict['S-TMSI'] = None
-    
-    session_dict['TMSI'] = None
-    session_dict['LAI'] = None
-    
-    session_dict['CPSR-TYPE'] = 0
-    
-    session_dict['S1-TYPE'] = "4G"
-    session_dict['MOBILE-IDENTITY'] = session_dict['ENCODED-IMSI'] 
-    session_dict['MOBILE-IDENTITY-TYPE'] = "IMSI" 
-    session_dict['SESSION-SESSION-TYPE'] = "NONE"
-    session_dict['SESSION-TYPE'] = "4G"
-    session_dict['SESSION-TYPE-TUN'] = 1
-    session_dict['PDP-TYPE'] = 1
-    session_dict['ATTACH-PDN'] = None
-    session_dict['ATTACH-TYPE'] = 1
-    session_dict['TAU-TYPE'] = 0
-    session_dict['SMS-UPDATE-TYPE'] = False
-    session_dict['NBIOT-SESSION-TYPE'] = "NONE"
-    session_dict['CPSR-TYPE'] = 0
-
-    session_dict['UECONTEXTRELEASE-CSFB'] = False
-    
-    session_dict['PROCESS-PAGING'] = True
-    session_dict['PCSCF-RESTORATION'] = False
-
-    session_dict['NAS-KEY-SET-IDENTIFIER'] = 0
-    
-    session_dict['LOG'] = []
-
-    session_dict['NON-IP-PACKET'] = 1
-    session_dict['NON-IP-PACKETS'] = [NON_IP_PACKET_1, NON_IP_PACKET_2, NON_IP_PACKET_3, NON_IP_PACKET_4]
-
-    return session_dict
-
-
 def ip2int(addr):
     return struct.unpack("!I", socket.inet_aton(addr))[0]
-    
+
+
 def bytes2hex(byteArray):           
     return ''.join(hex(i).replace("0x", "0x0")[-2:] for i in byteArray)
 
+
 def hex2bytes(hex_str):
     return bytearray.fromhex(hex_str)
- 
+
+
 def bcd(chars):  
     bcd_string = ""
     for i in range(len(chars) // 2):
@@ -252,7 +90,6 @@ def return_plmn_s1ap(mccmnc):
 
 def return_plmn(mccmnc):
     mccmnc = str(mccmnc)
-    print("Returning PLMN from: " + str(mccmnc))
     if len(mccmnc)==5:
         return bcd(mccmnc[0] + mccmnc[1] + mccmnc[2] + 'f' + mccmnc[3] + mccmnc[4]) 
     elif len(mccmnc)==6:
@@ -261,6 +98,7 @@ def return_plmn(mccmnc):
     else:
         return b''
 
+
 def return_apn(apn):
     apn_bytes = bytes()
     apn_l = apn.split(".") 
@@ -268,14 +106,15 @@ def return_apn(apn):
         apn_bytes += struct.pack("!B", len(word)) + word.encode()     
      
     return apn_bytes    
-    
+
+
 def set_stream(client, stream):    
     sctp_default_send_param = bytearray(client.getsockopt(132,10,32))
     sctp_default_send_param[0]= stream
     client.setsockopt(132, 10, sctp_default_send_param)    
     return client
-    
-    
+
+
 def return_key(kasme, algo, type): # 33.401 Annex A.7
     if type == 'NAS-ENC':
         type = '01'
@@ -2499,114 +2338,19 @@ def decapsulate_gtp_u(args):
 
 ######################################################################################################################################
 ######################################################################################################################################
-def main():
-
-    
-    session_dict = {}
-
-    parser = OptionParser()    
-    parser.add_option("-i", "--ip", dest="eNB_ip", help="eNB Local IP Address")
-    parser.add_option("-m", "--mme", dest="mme_ip", help="MME IP Address")
-    parser.add_option("-g", "--gateway_ip_address", dest="gateway_ip_address", help="gateway IP address") 
-    parser.add_option("-u", "--usb_device", dest="serial_interface", help="modem port (i.e. COMX, or /dev/ttyUSBX), smartcard reader index (0, 1, 2, ...), or server for https")     
-    parser.add_option("-I", "--imsi", dest="imsi", help="IMSI (15 digits)")
-    parser.add_option("-E", "--imei", dest="imei", help="IMEI-SV (16 digits)")    
-    parser.add_option("-K", "--ki", dest="ki", help="ki for Milenage (if not using option -u)")    
-    parser.add_option("-P", "--op", dest="op", help="op for Milenage (if not using option -u)")    
-    parser.add_option("-C", "--opc", dest="opc", help="opc for Milenage (if not using option -u)")    
-    parser.add_option("-o", "--operator", dest="plmn", help="Operator MCC+MNC")
-    parser.add_option("--tac1", dest="tac1", help="1st tracking area code")
-    parser.add_option("--tac2", dest="tac2", help="2nd tracking area code")
-
-    
-    (options, args) = parser.parse_args()
-    #Detect if no options set:
-    if len(sys.argv) <= 1:
-        print("No arguments passed - You need to specify parameters to use.")
-        parser.print_help()
-        exit(1)
-
-    if options.mme_ip is None:
-        print('MME IP Required. Exiting.')
-        exit(1)
-    if options.eNB_ip is None:
-        print('eNB Local IP Required! Exiting.')
-        exit(1)
-    if options.gateway_ip_address is not None:
-        subprocess.call("route add " + options.mme_ip + "/32 gw " + options.gateway_ip_address, shell=True)
-        session_dict['GATEWAY'] = options.gateway_ip_address
-    else:
-        session_dict['GATEWAY'] = None    
-        
-    if options.serial_interface is None:
-        session_dict['LOCAL_KEYS'] = True
-    else:
-        session_dict['LOCAL_KEYS'] = False
-        session_dict['SERIAL-INTERFACE'] = options.serial_interface
-        session_dict['LOCAL_MILENAGE'] = False
-
-    if options.imsi is None:
-        session_dict['IMSI'] = None
-    else:
-        session_dict['IMSI'] = options.imsi
-
-    if options.imei is None:
-        session_dict['IMEISV'] = None
-    else:
-        session_dict['IMEISV'] = options.imei
-
-    if options.ki is not None and (options.op is not None or options.opc is not None):
-        session_dict['LOCAL_KEYS'] = False
-        session_dict['LOCAL_MILENAGE'] = True
-        session_dict['KI'] = unhexlify(options.ki)
-        if options.op is not None:
-            session_dict['OP'] = unhexlify(options.op)
-            session_dict['OPC'] = None
-        elif options.opc is not None:
-            session_dict['OPC'] = unhexlify(options.opc)
-            session_dict['OP'] = None
-    else:
-        session_dict['LOCAL_MILENAGE'] = False
-
-    if options.tac1 is not None:
-        session_dict['ENB-TAC1'] = int(options.tac1).to_bytes(2, byteorder='big')
-    else:
-        session_dict['ENB-TAC1'] = None
-
-    if options.tac2 is not None:
-        session_dict['ENB-TAC2'] = int(options.tac2).to_bytes(2, byteorder='big')
-    else:
-        session_dict['ENB-TAC2'] = None
-
-    if options.plmn is not None:
-        session_dict['PLMN'] = options.plmn
-    else:
-        session_dict['PLMN'] = PLMN    
-    
-    server_address = (options.mme_ip, 36412)
-
-    #socket options
+def get_client(options):
     client = socket.socket(socket.AF_INET,socket.SOCK_STREAM,socket.IPPROTO_SCTP) 
     client.bind((options.eNB_ip, 0))
-   
     sctp_default_send_param = bytearray(client.getsockopt(132,10,32))
     sctp_default_send_param[11]= 18
     client.setsockopt(132, 10, sctp_default_send_param)
-        
-    #variables initialization 
-    PDU = S1AP.S1AP_PDU_Descriptions.S1AP_PDU
-    
-    #################################################
-    #################################################
-    #################################################
-    
-    # settting initial settings
-    session_dict = session_dict_initialization(session_dict)
-    session_dict['ENB-GTP-ADDRESS-INT'] = ip2int(options.eNB_ip)
-    session_dict['ENB-GTP-ADDRESS'] = socket.inet_aton(options.eNB_ip)
-
-
+    server_address = (options.mme_ip, 36412)
     client.connect(server_address)
+
+    return client
+
+def setup_network_io_stuff(options):
+    cla_session_dict_items_network = {} # io better name?
 
     s_gtpu = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s_gtpu.bind((options.eNB_ip, 2152))
@@ -2614,14 +2358,16 @@ def main():
     dev = open_tun(1)
     #for s1ap
     dev_nbiot = open_tun(2)
-    session_dict['NBIOT-TUN'] = dev_nbiot
-    
+
     pipe_in_gtpu_encapsulate, pipe_out_gtpu_encapsulate = os.pipe()
     pipe_in_gtpu_decapsulate, pipe_out_gtpu_decapsulate = os.pipe()
     
-    session_dict['PIPE-OUT-GTPU-ENCAPSULATE'] = pipe_out_gtpu_encapsulate
-    session_dict['PIPE-OUT-GTPU-DECAPSULATE'] = pipe_out_gtpu_decapsulate
-    session_dict['GTP-U'] = b'\x02' # inactive
+    cla_session_dict_items_network['NBIOT-TUN'] = dev_nbiot
+    cla_session_dict_items_network['ENB-GTP-ADDRESS-INT'] = ip2int(options.eNB_ip)
+    cla_session_dict_items_network['ENB-GTP-ADDRESS'] = socket.inet_aton(options.eNB_ip)
+    cla_session_dict_items_network['PIPE-OUT-GTPU-ENCAPSULATE'] = pipe_out_gtpu_encapsulate
+    cla_session_dict_items_network['PIPE-OUT-GTPU-DECAPSULATE'] = pipe_out_gtpu_decapsulate
+    cla_session_dict_items_network['GTP-U'] = b'\x02' # inactive
 
     worker1 = Thread(target = encapsulate_gtp_u, args = ([s_gtpu, dev, pipe_in_gtpu_encapsulate],))
     worker2 = Thread(target = decapsulate_gtp_u, args = ([s_gtpu, dev, pipe_in_gtpu_decapsulate],))
@@ -2630,25 +2376,54 @@ def main():
     worker1.start()
     worker2.start()
 
-  
-    eMENU.print_menu(session_dict['LOG'])
-  
-   
-    socket_list = [sys.stdin ,client, dev_nbiot]
+    return cla_session_dict_items_network
+
+def get_nas_session_dict_items():
+    nas_session_dict_items = {}
+    hmac_hash_key = b'kasme   kasme   kasme   kasme   ' # any old garbage value for a hash - its the length that matters
+    # hex: 6b61736d652020206b61736d652020206b61736d652020206b61736d65202020
+    nas_session_dict_items['NAS-KEY-EEA1'] = return_key(hmac_hash_key,1,'NAS-ENC')
+    nas_session_dict_items['NAS-KEY-EEA2'] = return_key(hmac_hash_key,2,'NAS-ENC') # todo move to session create with option params
+    nas_session_dict_items['NAS-KEY-EEA3'] = return_key(hmac_hash_key,3,'NAS-ENC') # probably make this into 2 funcs?
+    nas_session_dict_items['NAS-KEY-EIA1'] = return_key(hmac_hash_key,1,'NAS-INT')
+    nas_session_dict_items['NAS-KEY-EIA2'] = return_key(hmac_hash_key,2,'NAS-INT')
+    nas_session_dict_items['NAS-KEY-EIA3'] = return_key(hmac_hash_key,3,'NAS-INT')
+
+    return nas_session_dict_items
+
+def main():
+
+    options = parse_cla()
+
+    # Build session_dict
+    session_dict = {}
+    session_dict.update(get_session_dict_items_from_cla(options))
+    plmn = return_plmn(session_dict['PLMN']) # temporally coupled to above function
+    session_dict.update(session_dict_initialization(session_dict, plmn, APN, IMEISV, eNAS))
+    session_dict.update(get_nas_session_dict_items())
+    session_dict.update(setup_network_io_stuff(options))
+
+    # Set loop vars
+    client = get_client(options)
+    PDU = S1AP.S1AP_PDU_Descriptions.S1AP_PDU
+    dev_nbiot = session_dict['NBIOT-TUN']
+    socket_list = [sys.stdin, client, dev_nbiot]
     
+    eMENU.print_menu(session_dict['LOG'])
+
+    auto_call_menu_items = options.auto_call
+
+    last = time.time()
     while True:
-        
-        read_sockets, write_sockets, error_sockets = select.select(socket_list, [], [])
-        
+        read_sockets, _write_sockets, _error_sockets = select.select(socket_list, [], [], 1)
+
         for sock in read_sockets:
             if sock == client:
                 PDU, client, session_dict = ProcessS1AP(PDU, client, session_dict)
                
-            elif sock == sys.stdin:        
+            elif sock == sys.stdin:
                 msg = sys.stdin.readline()
-                
                 PDU, client, session_dict = eMENU.ProcessMenu(PDU, client, session_dict, msg)
-                
                 
             elif sock == dev_nbiot:
                 session_dict['USER-DATA-CONTAINER'] = os.read(dev_nbiot, 1514)
@@ -2662,15 +2437,20 @@ def main():
                         session_dict = ProcessUplinkNAS('control plane service request with esm message container', session_dict)
                         PDU.set_val(InitialUEMessage(session_dict))    
                     
-                    
                     message = PDU.to_aper()  
                     client = set_stream(client, 1)
                     bytes_sent = client.send(message)
 
-
+        # todo refactor this into maybe a class or something - internal state to keep track of the last send time
+        delta_sec = time.time() - last
+        if len(auto_call_menu_items) and delta_sec > 1:
+            msg = str(auto_call_menu_items.pop(0)) + '\n'
+            with open('file.txt', 'a') as f:
+                f.write(msg)
+            PDU, client, session_dict = eMENU.ProcessMenu(PDU, client, session_dict, msg)
+            last = time.time()
 
     client.close()
-
 
 
 if __name__ == "__main__":    

@@ -472,6 +472,56 @@ def ProcessMenu(PDU, client, session_dict, msg):
         else:
             session_dict = print_log(session_dict, "NAS: Unable to send PDNDisconnectRequest. State < 2")            
             
+    # elif msg == "42\n":
+    #     if session_dict['STATE'] >1:
+    #         if session_dict['MME-UE-S1AP-ID'] > 0:        
+    #             session_dict = ProcessUplinkNAS('pdn connectivity request', session_dict)
+
+    #             # this actually send an emergency thing (but it crashes)
+    #             # this hex has the cypher for a different subscriber phone, we need to make the nas body from scratch
+    #             # also we probably should seg fault the mme
+    #             # ticket with all the pcaps that cause the mme to crash
+    #             session_dict['NAS'] = bytes.fromhex('27aefe892d230203d034273d8080211001000010810600000000830600000000000d00000300000100000c00001200000a0000050000100000110000170101001a0103002300002400')
+
+    #             PDU.set_val(UplinkNASTransport(session_dict))
+    #             message = PDU.to_aper()  
+    #             client = set_stream(client, 1)
+    #             bytes_sent = client.send(message)    
+    #         else:
+    #             session_dict = print_log(session_dict, "NAS: Unable to send PDNConnectivityRequest. No S1. Send ServiceRequest first.")               
+    #     else:
+    #         session_dict = print_log(session_dict, "NAS: Unable to send PDNConnectivityRequest. State < 2")
+
+    # elif msg == "42\n":
+    #     if session_dict['STATE'] >1:
+    #         if session_dict['MME-UE-S1AP-ID'] > 0:        
+    #             session_dict = ProcessUplinkNAS('pdn connectivity request', session_dict)
+
+    #             # this actually send an emergency thing (but it crashes)
+    #             session_dict['NAS'] = bytes.fromhex('27aefe892d230203d034273d8080211001000010810600000000830600000000000d00000300000100000c00001200000a0000050000100000110000170101001a0103002300002400')
+
+    #             PDU.set_val(UplinkNASTransport(session_dict))
+    #             message = PDU.to_aper()  
+    #             client = set_stream(client, 1)
+    #             bytes_sent = client.send(message)    
+    #         else:
+    #             session_dict = print_log(session_dict, "NAS: Unable to send PDNConnectivityRequest. No S1. Send ServiceRequest first.")               
+    #     else:
+    #         session_dict = print_log(session_dict, "NAS: Unable to send PDNConnectivityRequest. State < 2")
+
+    # elif msg == "43\n": # todo make this do an emergency detach (if there is one?)
+    #     if session_dict['STATE'] >1:    
+    #         if session_dict['MME-UE-S1AP-ID'] > 0: 
+    #             session_dict = ProcessUplinkNAS('pdn disconnect request', session_dict)
+    #             PDU.set_val(UplinkNASTransport(session_dict))
+    #             message = PDU.to_aper()  
+    #             client = set_stream(client, 1)
+    #             bytes_sent = client.send(message)    
+    #         else:
+    #             session_dict = print_log(session_dict, "NAS: Unable to send PDNDisconnectRequest. No S1. Send ServiceRequest first.")
+    #     else:
+    #         session_dict = print_log(session_dict, "NAS: Unable to send PDNDisconnectRequest. State < 2")            
+
     elif msg == "50\n":
         if session_dict['STATE'] > 1:
             if session_dict['GTP-U'] == b'\x02':
