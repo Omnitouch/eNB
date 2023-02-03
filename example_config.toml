@@ -1,0 +1,21 @@
+# Supported config options
+# enb_ip
+# mme_ip
+# gateway_ip_address
+# serial_interface
+# imsi
+# imei
+# ki
+# op
+# opc
+# plmn
+# auto_call
+
+tac1 = '1'
+imsi = '738000000000001'
+ki = '11111111111111111111111111111111'
+opc = '11111111111111111111111111111111'
+plmn = '73800'
+enb_ip = "10.0.0.36"
+mme_ip = "10.0.0.117"
+auto_call = ['8', '8', '15', '20', 'q']

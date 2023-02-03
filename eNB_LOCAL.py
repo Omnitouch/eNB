@@ -17,7 +17,7 @@ import subprocess
 from threading import Thread
 import datetime
 from session import session_dict_initialization
-from cla import parse_cla, get_session_dict_items_from_cla
+from cla import parse_cla, get_session_dict_items_from_config, config_load
 import time
 
 import eNAS, eMENU
@@ -2338,22 +2338,22 @@ def decapsulate_gtp_u(args):
 
 ######################################################################################################################################
 ######################################################################################################################################
-def get_client(options):
+def get_client(enb_ip, mme_ip):
     client = socket.socket(socket.AF_INET,socket.SOCK_STREAM,socket.IPPROTO_SCTP) 
-    client.bind((options.eNB_ip, 0))
+    client.bind((enb_ip, 0))
     sctp_default_send_param = bytearray(client.getsockopt(132,10,32))
     sctp_default_send_param[11]= 18
     client.setsockopt(132, 10, sctp_default_send_param)
-    server_address = (options.mme_ip, 36412)
+    server_address = (mme_ip, 36412)
     client.connect(server_address)
 
     return client
 
-def setup_network_io_stuff(options):
+def setup_network_io_stuff(enb_ip):
     cla_session_dict_items_network = {} # io better name?
 
     s_gtpu = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s_gtpu.bind((options.eNB_ip, 2152))
+    s_gtpu.bind((enb_ip, 2152))
     #for gtp-u
     dev = open_tun(1)
     #for s1ap
@@ -2363,8 +2363,8 @@ def setup_network_io_stuff(options):
     pipe_in_gtpu_decapsulate, pipe_out_gtpu_decapsulate = os.pipe()
     
     cla_session_dict_items_network['NBIOT-TUN'] = dev_nbiot
-    cla_session_dict_items_network['ENB-GTP-ADDRESS-INT'] = ip2int(options.eNB_ip)
-    cla_session_dict_items_network['ENB-GTP-ADDRESS'] = socket.inet_aton(options.eNB_ip)
+    cla_session_dict_items_network['ENB-GTP-ADDRESS-INT'] = ip2int(enb_ip)
+    cla_session_dict_items_network['ENB-GTP-ADDRESS'] = socket.inet_aton(enb_ip)
     cla_session_dict_items_network['PIPE-OUT-GTPU-ENCAPSULATE'] = pipe_out_gtpu_encapsulate
     cla_session_dict_items_network['PIPE-OUT-GTPU-DECAPSULATE'] = pipe_out_gtpu_decapsulate
     cla_session_dict_items_network['GTP-U'] = b'\x02' # inactive
@@ -2393,27 +2393,28 @@ def get_nas_session_dict_items():
 
 def main():
 
-    options = parse_cla()
+    args = parse_cla()
+    config_dict = config_load(args.config_file)
 
     # Build session_dict
     session_dict = {}
-    session_dict.update(get_session_dict_items_from_cla(options))
+    session_dict.update(get_session_dict_items_from_config(config_dict))
     plmn = return_plmn(session_dict['PLMN']) # temporally coupled to above function
     session_dict.update(session_dict_initialization(session_dict, plmn, APN, IMEISV, eNAS))
     session_dict.update(get_nas_session_dict_items())
-    session_dict.update(setup_network_io_stuff(options))
+    session_dict.update(setup_network_io_stuff(config_dict['enb_ip']))
 
     # Set loop vars
-    client = get_client(options)
+    client = get_client(config_dict['enb_ip'], config_dict['mme_ip'])
     PDU = S1AP.S1AP_PDU_Descriptions.S1AP_PDU
     dev_nbiot = session_dict['NBIOT-TUN']
     socket_list = [sys.stdin, client, dev_nbiot]
-    
-    eMENU.print_menu(session_dict['LOG'])
 
-    auto_call_menu_items = options.auto_call
-
+    # This stuff is for the auto calling functionality    
     last = time.time()
+    auto_call_menu_items = config_dict.get('auto_call', [])
+
+    eMENU.print_menu(session_dict['LOG'])
     while True:
         read_sockets, _write_sockets, _error_sockets = select.select(socket_list, [], [], 1)
 
@@ -2445,8 +2446,6 @@ def main():
         delta_sec = time.time() - last
         if len(auto_call_menu_items) and delta_sec > 1:
             msg = str(auto_call_menu_items.pop(0)) + '\n'
-            with open('file.txt', 'a') as f:
-                f.write(msg)
             PDU, client, session_dict = eMENU.ProcessMenu(PDU, client, session_dict, msg)
             last = time.time()
 
