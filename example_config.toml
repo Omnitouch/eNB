@@ -18,4 +18,10 @@ opc = '11111111111111111111111111111111'
 plmn = '73800'
 enb_ip = "10.0.0.36"
 mme_ip = "10.0.0.117"
-auto_call = ['8', '8', '15', '20', 'q']
+auto_call = ['15', '20', '42'] 
+todo_auto_call = [              # todo  add support for specifying deltas
+    {cmd = '8', delta_sec = 1},
+    {cmd = '8', delta_sec = 1},
+    {cmd = '15', delta_sec = 1},
+    {cmd = '20', delta_sec = 1},
+]

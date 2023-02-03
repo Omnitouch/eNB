@@ -20,45 +20,47 @@ LOG_SIZE = 100
  
 # Main menu
 
-menu_list = [ '  0. Show current settings',     \
-              '  1. Set S1 Setup type',         \
-              '  2. Set Attach Mobile Identity',\
-              '  3. Set Attach PDN',            \
-              '  4. Set Session type',          \
-              '  5. Set NBIOT PSM/eDRX',        \
-              '  6. Set PDN type',              \
-              '  7. Set CPSR type',             \
-              '  8. Set Attach type',             \
-              '  9. Set TAU type (for option 22)',             \
-              ' 10. Set Process Paging',             \
-              ' 11. Set SMS (AdditionalUpdateType)',             \
-              ' 12. Set eNB-CellID/TAC',             \
-              ' 13. Set P-CSCF Restoration Support',             \
-              ' ',                              \
-              ' 15. S1 Setup',          \
-              ' 16. S1 Reset',          \
-              ' ',                              \
-              ' 20. Attach', \
-              ' 21. Detach', \
-              ' 22. TAU', \
-              ' 23. TAU Periodic', \
-              ' 24. Service Request',           \
-              ' 25. Release UE Context',        \
-              ' 26. Send SMS',        \
-              ' 30. Control Plane Service Request',\
-              ' 35. E-RAB ModificationIndication (5G)',\
-              ' 36. Secondary RAT Data Usage Report (5G)',\
-              ' ',                              \
-              ' 40. PDN Connectivity',          \
-              ' 41. PDN Disconnect',            \
-              ' ',                              \
-              ' 50. Activate GTP-U/IP over ControlPlane',            \
-              ' 51. Deactivate GTP-U/IP over ControlPlane',          \
-              ' ',                              \
-              ' 60. Set Non-IP Packet to Send',            \
-              ' 61. Send Non-IP Packet',          \
-              ' ',                              \
-              ' 99. Clear Log',                 \
+menu_list = [ '  0. Show current settings',                 \
+              '  1. Set S1 Setup type',                     \
+              '  2. Set Attach Mobile Identity',            \
+              '  3. Set Attach PDN',                        \
+              '  4. Set Session type',                      \
+              '  5. Set NBIOT PSM/eDRX',                    \
+              '  6. Set PDN type',                          \
+              '  7. Set CPSR type',                         \
+              '  8. Set Attach type',                       \
+              '  9. Set TAU type (for option 22)',          \
+              ' 10. Set Process Paging',                    \
+              ' 11. Set SMS (AdditionalUpdateType)',        \
+              ' 12. Set eNB-CellID/TAC',                    \
+              ' 13. Set P-CSCF Restoration Support',        \
+              ' ',                                          \
+              ' 15. S1 Setup',                              \
+              ' 16. S1 Reset',                              \
+              ' ',                                          \
+              ' 20. Attach',                                \
+              ' 21. Detach',                                \
+              ' 22. TAU',                                   \
+              ' 23. TAU Periodic',                          \
+              ' 24. Service Request',                       \
+              ' 25. Release UE Context',                    \
+              ' 26. Send SMS',                              \
+              ' 30. Control Plane Service Request',         \
+              ' 35. E-RAB ModificationIndication (5G)',     \
+              ' 36. Secondary RAT Data Usage Report (5G)',  \
+              ' ',                                          \
+              ' 40. PDN Connectivity',                      \
+              ' 41. PDN Disconnect',                        \
+              ' 42. PDN Connectivity Emergency',            \
+              ' 43. PDN Disconnect Emergency',              \
+              ' ',                                          \
+              ' 50. Activate GTP-U/IP over ControlPlane',   \
+              ' 51. Deactivate GTP-U/IP over ControlPlane', \
+              ' ',                                          \
+              ' 60. Set Non-IP Packet to Send',             \
+              ' 61. Send Non-IP Packet',                    \
+              ' ',                                          \
+              ' 99. Clear Log',                             \
               '  Q. Quit' ]
 
 
@@ -472,25 +474,25 @@ def ProcessMenu(PDU, client, session_dict, msg):
         else:
             session_dict = print_log(session_dict, "NAS: Unable to send PDNDisconnectRequest. State < 2")            
             
-    # elif msg == "42\n":
-    #     if session_dict['STATE'] >1:
-    #         if session_dict['MME-UE-S1AP-ID'] > 0:        
-    #             session_dict = ProcessUplinkNAS('pdn connectivity request', session_dict)
+    elif msg == "42\n":
+        if session_dict['STATE'] >1:
+            if session_dict['MME-UE-S1AP-ID'] > 0:        
+                session_dict = ProcessUplinkNAS('pdn connectivity request', session_dict)
 
-    #             # this actually send an emergency thing (but it crashes)
-    #             # this hex has the cypher for a different subscriber phone, we need to make the nas body from scratch
-    #             # also we probably should seg fault the mme
-    #             # ticket with all the pcaps that cause the mme to crash
-    #             session_dict['NAS'] = bytes.fromhex('27aefe892d230203d034273d8080211001000010810600000000830600000000000d00000300000100000c00001200000a0000050000100000110000170101001a0103002300002400')
+                # this actually send an emergency thing (but it crashes)
+                # this hex has the cypher for a different subscriber phone, we need to make the nas body from scratch
+                # also we probably should seg fault the mme
+                # ticket with all the pcaps that cause the mme to crash
+                session_dict['NAS'] = bytes.fromhex('27aefe892d230203d034273d8080211001000010810600000000830600000000000d00000300000100000c00001200000a0000050000100000110000170101001a0103002300002400')
 
-    #             PDU.set_val(UplinkNASTransport(session_dict))
-    #             message = PDU.to_aper()  
-    #             client = set_stream(client, 1)
-    #             bytes_sent = client.send(message)    
-    #         else:
-    #             session_dict = print_log(session_dict, "NAS: Unable to send PDNConnectivityRequest. No S1. Send ServiceRequest first.")               
-    #     else:
-    #         session_dict = print_log(session_dict, "NAS: Unable to send PDNConnectivityRequest. State < 2")
+                PDU.set_val(UplinkNASTransport(session_dict))
+                message = PDU.to_aper()
+                client = set_stream(client, 1)
+                bytes_sent = client.send(message)    
+            else:
+                session_dict = print_log(session_dict, "NAS: Unable to send PDNConnectivityRequest. No S1. Send ServiceRequest first.")               
+        else:
+            session_dict = print_log(session_dict, "NAS: Unable to send PDNConnectivityRequest. State < 2")
 
     # elif msg == "42\n":
     #     if session_dict['STATE'] >1:

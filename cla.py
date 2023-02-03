@@ -19,8 +19,8 @@ def get_session_dict_items_from_config(config_dict):
     cla_session_dict_items = {}
 
     # Get items needed from dict
+    enb_ip             = config_dict.get('enb_ip', None)
     mme_ip             = config_dict.get('mme_ip', None)
-    eNB_ip             = config_dict.get('enb_ip', None)
     gateway_ip_address = config_dict.get('gateway_ip_address', None)
     serial_interface   = config_dict.get('serial_interface', None)
     imsi               = config_dict.get('imsi', None)
@@ -33,7 +33,7 @@ def get_session_dict_items_from_config(config_dict):
     if mme_ip is None:
         print('MME IP Required. Exiting.')
         exit(1)
-    if eNB_ip is None:
+    if enb_ip is None:
         print('eNB Local IP Required! Exiting.')
         exit(1)
     if gateway_ip_address is not None:
