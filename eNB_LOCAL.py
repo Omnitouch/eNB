@@ -2410,9 +2410,7 @@ def main():
     dev_nbiot = session_dict['NBIOT-TUN']
     socket_list = [sys.stdin, client, dev_nbiot]
 
-    # This stuff is for the auto calling functionality    
-    last = time.time()
-    auto_call_menu_items = config_dict.get('auto_call', [])
+    ar = AutoRun(config_dict)
 
     eMENU.print_menu(session_dict['LOG'])
     while True:
@@ -2442,14 +2440,43 @@ def main():
                     client = set_stream(client, 1)
                     bytes_sent = client.send(message)
 
-        # todo refactor this into maybe a class or something - internal state to keep track of the last send time
-        delta_sec = time.time() - last
-        if len(auto_call_menu_items) and delta_sec > 1:
-            msg = str(auto_call_menu_items.pop(0)) + '\n'
-            PDU, client, session_dict = eMENU.ProcessMenu(PDU, client, session_dict, msg)
-            last = time.time()
+        if ar.ready_to_send_command():
+            PDU, client, session_dict = ar.consume_and_send_command(PDU, client, session_dict)
 
     client.close()
+
+# TODO move to an appropriate location
+class AutoRun():
+    items = {}
+    last_send_time = 0
+
+    def __init__(self, config_dict) -> None:
+        config_items = config_dict.get('auto_run', {})
+
+        if config_items:
+            self.items = list(map(lambda item: (item['cmd'], item['delta_sec']), config_items))
+            print(self.items)
+        
+        self.last_send_time = time.time()
+
+    def ready_to_send_command(self) -> bool:
+        result = False
+
+        if self.items:
+            (_cmd, delta_sec) = self.items[0]
+
+            current_time = time.time()
+            if delta_sec < current_time - self.last_send_time:
+                result = True
+
+        return result
+
+    def consume_and_send_command(self, PDU, client, session_dict):
+        if self.items:
+            (cmd, _delta_sec) = self.items.pop(0)
+            msg = cmd + '\n'
+            self.last_send_time = time.time()
+            return eMENU.ProcessMenu(PDU, client, session_dict, msg)
 
 
 if __name__ == "__main__":    

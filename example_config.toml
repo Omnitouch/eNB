@@ -16,12 +16,12 @@ imsi = '738000000000001'
 ki = '11111111111111111111111111111111'
 opc = '11111111111111111111111111111111'
 plmn = '73800'
-enb_ip = "10.0.0.36"
+enb_ip = "10.0.0.37"
 mme_ip = "10.0.0.117"
-auto_call = ['15', '20', '42'] 
-todo_auto_call = [              # todo  add support for specifying deltas
-    {cmd = '8', delta_sec = 1},
-    {cmd = '8', delta_sec = 1},
+auto_run = [
     {cmd = '15', delta_sec = 1},
     {cmd = '20', delta_sec = 1},
+    {cmd = '8', delta_sec = 0},
+    {cmd = '8', delta_sec = 0},
+    {cmd = '40', delta_sec = 5},
 ]
